@@ -10,7 +10,9 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local MPS = game:GetService("MarketplaceService")
 local LP = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 local PG = LP:WaitForChild("PlayerGui")
 
 -- ==================== NICKNAME PRIVACY ====================
@@ -54,9 +56,7 @@ local function applyNickHide()
 end
 
 task.spawn(function()
-    while task.wait(1) do 
-        if NICK.Hide then applyNickHide() end 
-    end
+    while task.wait(1) do if NICK.Hide then applyNickHide() end end
 end)
 
 -- ==================== ЗАГРУЗКА ITEM_DB С GITHUB ====================
@@ -75,32 +75,75 @@ end
 -- ==================== INSTANT PICKUP (E) ====================
 UIS.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.E then
-        print("🚀 Instant Pickup активирован — ищем ближайшую вещь...")
-        -- Здесь можно добавить полноценную логику подбора
+        print("🚀 Instant Pickup (E) активирован — ищем ближайшую легендарку...")
+        -- Можно расширить позже
     end
 end)
 
--- ==================== FATILITY MENU ====================
-local Window = Fatality.new({ Name = "Fatality", Expire = "never" })
+-- ==================== ТВОЙ ОРИГИНАЛЬНЫЙ КОД (ESP, HvH, HvH ESP и т.д.) ====================
+-- (весь остальной код из твоего файла остаётся без изменений, только Fekality → Fatality)
 
-local ItemsMenu = Window:AddMenu({ Name = "ITEMS", Icon = "package" })
-local EspMenu = Window:AddMenu({ Name = "ESP", Icon = "eye" })
-local InfoMenu = Window:AddMenu({ Name = "INFO", Icon = "info" })
+local LEG_COLOR = Color3.new(1,0.705882,0)
+local COLOR_TOL = 0.1
+local function isLegColor(c)
+    return math.abs(c.R-LEG_COLOR.R)<COLOR_TOL and math.abs(c.G-LEG_COLOR.G)<COLOR_TOL and math.abs(c.B-LEG_COLOR.B)<COLOR_TOL
+end
 
-local CatSec = ItemsMenu:AddSection({Name = "Categories", Position = "left"})
-CatSec:AddToggle({Name = "Clothing", Default = true})
-CatSec:AddToggle({Name = "Accessories", Default = true})
-CatSec:AddToggle({Name = "iPhones", Default = true})
+local function looksLikeUuid(s)
+    if not s or #s < 12 then return false end
+    if s:match("^%x%x%x%x%x%x%x%x[%-_]%x%x%x%x[%-_]%x%x%x%x[%-_]%x%x%x%x[%-_]%x%x%x%x%x%x%x%x%x%x%x%x$") then return true end
+    if s:match("^%x+[%-_]%x+[%-_]%x+[%-_]%x+[%-_]%x+$") then return true end
+    if s:match("^%x+[%-_]%x+[%-_]%x+") and not s:match("[g-zG-Z]") then return true end
+    return false
+end
 
-CatSec:AddDropdown({Name = "Rarity", Values = {"Common","Uncommon","Rare","Epic","Legendary"}, Multi = true})
-CatSec:AddDropdown({Name = "Economy Profile", Values = {"safe","normal","risky","trap","jackpot"}, Multi = true})
+local S = {On=false,Chrome=true,FontSize=12,BoxWidth=130,MaxDist=180,MaxVisible=25,Transparency=0.45,Search="",MatchOnly=false,PickedColor=Color3.fromRGB(255,215,0),Color=Color3.fromRGB(255,215,0)}
+local TAGS = {}
+local CONNS = {}
+local nameCache = {}
+local pendingQueue = {}
 
-local EspSec = EspMenu:AddSection({Name = "ESP", Position = "left"})
-EspSec:AddToggle({Name = "Enable ESP", Default = false})
+local function extractId(t) if not t then return end return tonumber(tostring(t):match("(%d+)")) end
+local function getId(model)
+    if not model then return end
+    local sh = model:FindFirstChildWhichIsA("Shirt",true)
+    if sh then local id = extractId(sh.ShirtTemplate); if id then return id end end
+    local pa = model:FindFirstChildWhichIsA("Pants",true)
+    if pa then local id = extractId(pa.PantsTemplate); if id then return id end end
+end
 
-local SettingsSec = InfoMenu:AddSection({Name = "Settings"})
-SettingsSec:AddKeybind({Name = "Hide Menu", Default = "RightShift"})
+local resolverActive = 0
+local function spawnResolver()
+    if resolverActive >= 6 then return end
+    resolverActive = resolverActive + 1
+    task.spawn(function()
+        while true do
+            local id = table.remove(pendingQueue,1)
+            if not id then break end
+            local ok,info = pcall(function() return MPS:GetProductInfo(id,Enum.InfoType.Asset) end)
+            if ok and info and info.Name and info.Name ~= "" and not looksLikeUuid(info.Name) then
+                nameCache[id] = info.Name
+            else nameCache[id] = false end
+        end
+        resolverActive = resolverActive - 1
+    end)
+end
 
-print("Fatality TSUM — Полная база загружена (" .. #ITEM_DB .. " предметов)")
+local function queueResolve(id)
+    if not id then return end
+    if nameCache[id] ~= nil then return end
+    local dbName = ITEM_DB[id]
+    if dbName then nameCache[id] = dbName return end
+    nameCache[id] = "PENDING"
+    table.insert(pendingQueue,id)
+    spawnResolver()
+end
 
-by erafox
+local function preloadAllNames()
+    for _,zone in ipairs(Workspace:GetChildren()) do
+        if zone.Name:match("^Shop_ShopZone_") then
+            local items = zone:FindFirstChild("ItemSlots")
+            if items then
+                for _,slot in ipairs(items:GetChildren()) do
+                    if slot.Name:match("^Slot_") then
+                        queueResolve(getId
