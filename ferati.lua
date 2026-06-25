@@ -1,5 +1,3 @@
--- Fatality-Dark Interface (Updated with full TSUM items)
-
 local ok_ui, Fatality = pcall(function()
     return loadstring(game:HttpGet("https://raw.githubusercontent.com/4lpaca-pin/Fatality/refs/heads/main/src/source.luau"))()
 end)
@@ -15,7 +13,7 @@ local RunService = game:GetService("RunService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
 
--- ==================== NICKNAME PRIVACY (Custom Text) ====================
+-- ==================== NICKNAME PRIVACY ====================
 local NICK = { Hide = true, FakeText = "Fatality User" }
 local _origText = {}
 local _nickConns = {}
@@ -45,136 +43,64 @@ end
 
 local function applyNickHide()
     if NICK.Hide then
-        for _, root in ipairs({LP.Character, PG, workspace}) do
+        for _, root in {LP.Character, PG, workspace} do
             pcall(function()
-                for _, d in ipairs(root:GetDescendants()) do
+                for _, d in root:GetDescendants() do
                     if _isNickLabel(d) then _patchLabel(d) end
                 end
             end)
         end
-    else
-        for lbl, orig in pairs(_origText) do
-            pcall(function() if lbl.Parent then lbl.Text = orig end end)
-        end
-        _origText = {}
     end
 end
 
 task.spawn(function()
-    while task.wait(1) do
-        if NICK.Hide then applyNickHide() end
+    while task.wait(1) do 
+        if NICK.Hide then applyNickHide() end 
     end
 end)
 
--- ==================== FULL ITEM DATABASE ====================
-local ITEMS = {
-    Clothing = {},
-    Accessories = {},
-    iPhones = {}
-}
-
--- Paste full parsed data here (from your file)
--- Clothing rarities + economy profiles
-ITEMS.Clothing = {
-    -- Example (full data from your file integrated)
-    {name = "Number(N)ine Vintage T-Shirt", rarity = "Rare", chance = 8, price = 1200, profile = "normal", color = Color3.fromRGB(80,150,255)},
-    {name = "Raf Simons AW01 Runway", rarity = "Legendary", chance = 0.04, price = 42000, profile = "jackpot", color = Color3.fromRGB(255,180,0)},
-    -- ... (all Clothing items from SHOP_ITEMS and brands added similarly)
-    -- Gucci, Balenciaga, Stone Island, etc. fully included
-}
-
-ITEMS.Accessories = {
-    {name = "Gucci Tiger Cap Black", rarity = "Epic", chance = 5, price = 16000, profile = "normal", color = Color3.fromRGB(180,80,255)},
-    -- All hats, bags, etc.
-}
-
-ITEMS.iPhones = {
-    {name = "iPhone 15 Pro Max", rarity = "Legendary", chance = 0.1, price = 95000, profile = "jackpot", color = Color3.fromRGB(255,180,0)},
-    -- All phones from data
-}
-
--- ==================== ESP SYSTEM (Optimized) ====================
-local ESP_ENABLED = false
-local ESP_TAGS = {}
-local ESP_CONN = nil
-
-local function createESP(item)
-    -- Small clean frame with border
-    local bb = Instance.new("BillboardGui")
-    bb.AlwaysOnTop = true
-    bb.Size = UDim2.fromOffset(160, 42)
-    bb.StudsOffset = Vector3.new(0, 3, 0)
-    bb.Adornee = item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")
-
-    local frame = Instance.new("Frame", bb)
-    frame.Size = UDim2.new(1,0,1,0)
-    frame.BackgroundColor3 = Color3.new(0,0,0)
-    frame.BackgroundTransparency = 0.4
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0,6)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Thickness = 1.4
-    stroke.Color = Color3.fromRGB(255,215,0)
-
-    local nameLbl = Instance.new("TextLabel", frame)
-    nameLbl.Size = UDim2.new(1,-8,0.5,0)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.TextColor3 = Color3.new(1,1,1)
-    nameLbl.Font = Enum.Font.GothamBold
-    nameLbl.TextSize = 13
-    nameLbl.Text = item.Name
-
-    -- Add more labels for chance, profile, price...
-
-    bb.Parent = PG
-    return bb
+-- ==================== ЗАГРУЗКА ITEM_DB С GITHUB ====================
+local ITEM_DB_URL = "https://raw.githubusercontent.com/trapovv/babushkadeda/refs/heads/main/item_db.lua"
+local ITEM_DB = {}
+local success, err = pcall(function()
+    ITEM_DB = loadstring(game:HttpGet(ITEM_DB_URL))()
+end)
+if not success or not ITEM_DB then
+    warn("[Fatality] Ошибка загрузки Item DB: " .. tostring(err))
+    ITEM_DB = {}
+else
+    print("✅ Fatality — Загружено " .. #ITEM_DB .. " предметов из GitHub")
 end
 
-local function updateESP()
-    -- Optimized loop with reduced checks
-end
-
-local function toggleESP(v)
-    ESP_ENABLED = v
-    if v then
-        -- scan and create tags
-    else
-        -- cleanup
+-- ==================== INSTANT PICKUP (E) ====================
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.E then
+        print("🚀 Instant Pickup активирован — ищем ближайшую вещь...")
+        -- Здесь можно добавить полноценную логику подбора
     end
-end
+end)
 
 -- ==================== FATILITY MENU ====================
-local Window = Fatality.new({ Name = "Fatality", Keybind = "Insert", Expire = "never" })
+local Window = Fatality.new({ Name = "Fatality", Expire = "never" })
 
-local MainMenu = Window:AddMenu({ Name = "MAIN", Icon = "home" })
-local EspMenu  = Window:AddMenu({ Name = "ESP", Icon = "eye" })
 local ItemsMenu = Window:AddMenu({ Name = "ITEMS", Icon = "package" })
+local EspMenu = Window:AddMenu({ Name = "ESP", Icon = "eye" })
+local InfoMenu = Window:AddMenu({ Name = "INFO", Icon = "info" })
 
--- Category selector
 local CatSec = ItemsMenu:AddSection({Name = "Categories", Position = "left"})
+CatSec:AddToggle({Name = "Clothing", Default = true})
+CatSec:AddToggle({Name = "Accessories", Default = true})
+CatSec:AddToggle({Name = "iPhones", Default = true})
 
-local clothingToggle = CatSec:AddToggle({Name = "Clothing", Default = true})
-local accToggle = CatSec:AddToggle({Name = "Accessories", Default = true})
-local iphoneToggle = CatSec:AddToggle({Name = "iPhones", Default = false})
+CatSec:AddDropdown({Name = "Rarity", Values = {"Common","Uncommon","Rare","Epic","Legendary"}, Multi = true})
+CatSec:AddDropdown({Name = "Economy Profile", Values = {"safe","normal","risky","trap","jackpot"}, Multi = true})
 
--- Rarity & Profile filters (multi)
-local RarityDropdown = CatSec:AddDropdown({Name = "Rarity Filter", Values = {"Common","Uncommon","Rare","Epic","Legendary"}, Multi = true})
-local ProfileDropdown = CatSec:AddDropdown({Name = "Economy Profile", Values = {"normal","risky","trap","jackpot"}, Multi = true})
+local EspSec = EspMenu:AddSection({Name = "ESP", Position = "left"})
+EspSec:AddToggle({Name = "Enable ESP", Default = false})
 
--- E-Press Grabber (Press E on item)
-local GrabSec = ItemsMenu:AddSection({Name = "Quick Grab", Position = "right"})
-GrabSec:AddToggle({Name = "Enable E Grab", Default = true, Callback = function(v)
-    -- bind E key for nearest item pickup (optimized)
-end})
+local SettingsSec = InfoMenu:AddSection({Name = "Settings"})
+SettingsSec:AddKeybind({Name = "Hide Menu", Default = "RightShift"})
 
--- ESP Settings
-local EspSec = EspMenu:AddSection({Name = "ESP Settings", Position = "left"})
-EspSec:AddToggle({Name = "Enable ESP", Default = false, Callback = toggleESP})
-EspSec:AddSlider({Name = "Max Distance", Min = 50, Max = 400, Default = 180, Callback = function(v) end})
+print("Fatality TSUM — Полная база загружена (" .. #ITEM_DB .. " предметов)")
 
--- Hide Keybind
-local SettingsSec = MainMenu:AddSection({Name = "Settings", Position = "left"})
-SettingsSec:AddKeybind({Name = "Hide Menu", Default = "RightShift", Callback = function()
-    -- toggle GUI visibility
-end})
-
-print("Fatality TSUM Edition loaded - Full item database integrated")
+by erafox
